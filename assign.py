@@ -1,0 +1,50 @@
+import cv2 #install opencv-python
+import pandas as pd
+from psd_tools import PSDImage  #install psd-tools
+psd = PSDImage.open('2.psd') #any psd file
+for layer in psd:
+  print(layer.name)
+def layerf(layer):
+  layer_image = layer.composite()
+  layer_image.save('%s.png' % layer.name)
+  temp=cv2.imread(f"{layer.name}.png")
+  dim=list(temp.shape)
+  length=dim[1]
+  width=dim[0]
+  s= f"{layer.name}"
+  frame=cv2.imread(f"{s}.png")
+  gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+  faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+  faces = faceCascade.detectMultiScale(gray,scaleFactor=1.3,minNeighbors=5,minSize=(151,151))
+  image = frame.copy()
+  headroom=0
+  coord =[]
+  for (x, y, w, h) in faces:
+    cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    headroom=y
+    coord =[(x ,y),(x+w,y),(x,y+h), (x+w, y+h)]
+  location=""
+  if len(coord)==4:
+    bottom = width / 2 - coord[0][1]
+    top = coord[2][1] - width / 2
+    left = length / 2 - coord[0][0]
+    right = coord[1][0] - length / 2
+    if top == bottom and left == right:
+      location = "CENTRE"
+    elif top > bottom:
+      if left > right:
+        location = "TOP LEFT"
+      else:
+        location = "TOP RIGHT"
+    else:
+      if left > right:
+        location = "BOTTOM LEFT"
+      else:
+        location = "BOTTOM RIGHT"
+  return [s,headroom,location]
+df=pd.DataFrame(columns=["Layer Name","Headroom","cordinates"])
+for layer in psd:
+  z=layerf(layer)
+  df.loc[len(df.index)]=z
+df.reset_index(inplace=True)
+df.to_csv("OUTPUT.csv")
